@@ -104,7 +104,7 @@ def load_providers(provider_file):
     """ Load provider URLs from YAML file """
     with open(provider_file, 'r') as f:
         data = yaml.safe_load(f)
-    return data.get("SendRequest", []), data.get("ReadFileUrl", [])
+    return data.get("Request", []), data.get("Read", [])
 
 def check_ip_against_cdn(ip, cidr_ranges):
     """ Check if the given IP is behind a CDN """
