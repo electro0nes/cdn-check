@@ -1,0 +1,6 @@
+pyyaml
+requests
+ipaddress
+argparse
+concurrent.futures
+colorama

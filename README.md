@@ -16,7 +16,7 @@
 ```bash
 git clone https://github.com/moeinerfanian/cdn-check.git
 cd cdn-check
-pip install -r requirements.txt
+pip3 install -r requirements.txt
 ```
 
 ## Usage
