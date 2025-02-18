@@ -138,7 +138,7 @@ def main():
     parser = argparse.ArgumentParser(description="Cdn-Chekc - A tool to check if an IP is behind a CDN or thirdparty")
     parser.add_argument("-i", "--ip", help="Single IP address to check")
     parser.add_argument("-l", "--list", help="File containing a list of IPs to check")
-    parser.add_argument("-p", "--providers", required=True, help="YAML file containing provider URLs")
+    parser.add_argument("-p", "--providers",default="files/providers.yaml", required=False, help="YAML file containing provider URLs")
     parser.add_argument("--silent", action="store_true", help="Suppress banner output")
     parser.add_argument("--threads", type=int, default=1, help="Number of threads (default: 1)")
     parser.add_argument("-o", "--output", help="Output file (default: CLI output)")
