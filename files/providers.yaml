@@ -17,7 +17,7 @@ Request:
     - https://ip-ranges.amazonaws.com/ip-ranges.json
     - https://prefixlists.tools.cdn77.com/public_lmax_prefixes.json
     - https://raw.githubusercontent.com/femueller/cloud-ip-ranges/refs/heads/master/aws-ip-ranges.json
-
+    - https://support.zendesk.com/ips
 Read:
     - https://www.arvancloud.ir/en/ips.txt
     - https://raw.githubusercontent.com/stamparm/maltrail/refs/heads/master/misc/cdn_ranges.txt
