@@ -6,7 +6,7 @@ import json
 import csv
 import re
 import xml.etree.ElementTree as ET
-import threading
+from concurrent.futures import ThreadPoolExecutor
 from colorama import Fore, Style, init
 
 init(autoreset=True)
@@ -18,7 +18,7 @@ BANNER = f"""
 """
 
 def fetch_cidr_from_urls(urls):
-    """ Fetch CIDR ranges from URLs """
+    """Fetch CIDR ranges from URLs."""
     cidr_ranges = set()
     for url in urls:
         try:
@@ -39,7 +39,7 @@ def fetch_cidr_from_urls(urls):
     return cidr_ranges
 
 def extract_cidr(data):
-    """ Extract CIDR and IPs from raw text """
+    """Extract CIDR and IPs from raw text."""
     cidr_list = set()
     ip_pattern = re.compile(r"\b(?:\d{1,3}\.){3}\d{1,3}(?:/\d{1,2})?\b")
     for match in ip_pattern.findall(data):
@@ -50,7 +50,7 @@ def extract_cidr(data):
     return cidr_list
 
 def extract_cidr_from_json(data):
-    """ Extract CIDR and IPs from JSON """
+    """Extract CIDR and IPs from JSON."""
     cidr_list = set()
     try:
         json_data = json.loads(data)
@@ -72,7 +72,7 @@ def extract_cidr_from_json(data):
     return cidr_list
 
 def extract_cidr_from_csv(data):
-    """ Extract CIDR and IPs from CSV """
+    """Extract CIDR and IPs from CSV."""
     cidr_list = set()
     csv_reader = csv.reader(data.splitlines())
     for row in csv_reader:
@@ -85,7 +85,7 @@ def extract_cidr_from_csv(data):
     return cidr_list
 
 def extract_cidr_from_xml(data):
-    """ Extract CIDR and IPs from XML """
+    """Extract CIDR and IPs from XML."""
     cidr_list = set()
     try:
         root = ET.fromstring(data)
@@ -101,44 +101,48 @@ def extract_cidr_from_xml(data):
     return cidr_list
 
 def load_providers(provider_file):
-    """ Load provider URLs from YAML file """
+    """Load provider URLs from YAML file."""
     with open(provider_file, 'r') as f:
         data = yaml.safe_load(f)
     return data.get("Request", []), data.get("Read", [])
 
-def check_ip_against_cdn(ip, cidr_ranges):
-    """ Check if the given IP is behind a CDN """
-    ip_obj = ipaddress.ip_address(ip)
+def prepare_networks(cidr_ranges):
+    """Pre-process CIDR ranges into ipaddress network objects."""
+    networks = []
     for cidr in cidr_ranges:
         try:
-            if ip_obj in ipaddress.ip_network(cidr, strict=False):
-                return True
+            networks.append(ipaddress.ip_network(cidr, strict=False))
         except ValueError:
             continue
+    return networks
+
+def check_ip_against_cdn(ip, networks):
+    """Check if the given IP is behind a CDN using preprocessed networks."""
+    ip_obj = ipaddress.ip_address(ip)
+    for network in networks:
+        if ip_obj in network:
+            return True
     return False
 
-def process_ips(ip_list, cidr_ranges, output_file):
-    """ Process IPs and write to output if needed """
-    results = []
-    for ip in ip_list:
-        if not check_ip_against_cdn(ip, cidr_ranges):
-            results.append(ip)
-    if output_file:
-        with open(output_file, 'w') as f:
-            f.write('\n'.join(results) + '\n')
-    else:
-        for ip in results:
-            print(ip)
+def split_list(lst, n):
+    """Split list lst into n roughly equal chunks."""
+    k, m = divmod(len(lst), n)
+    return [lst[i*k + min(i, m):(i+1)*k + min(i+1, m)] for i in range(n)]
 
-def worker(ip_list, cidr_ranges, output_file):
-    process_ips(ip_list, cidr_ranges, output_file)
+def process_chunk(chunk, networks):
+    """Process a chunk of IPs and return those not behind a CDN."""
+    results = []
+    for ip in chunk:
+        if not check_ip_against_cdn(ip, networks):
+            results.append(ip)
+    return results
 
 def main():
     import argparse
-    parser = argparse.ArgumentParser(description="Cdn-Chekc - A tool to check if an IP is behind a CDN or thirdparty")
+    parser = argparse.ArgumentParser(description="Cdn-Check - A tool to check if an IP is behind a CDN or thirdparty")
     parser.add_argument("-i", "--ip", help="Single IP address to check")
     parser.add_argument("-l", "--list", help="File containing a list of IPs to check")
-    parser.add_argument("-p", "--providers",default="files/providers.yaml", required=False, help="YAML file containing provider URLs")
+    parser.add_argument("-p", "--providers", default="files/providers.yaml", required=False, help="YAML file containing provider URLs")
     parser.add_argument("--silent", action="store_true", help="Suppress banner output")
     parser.add_argument("--threads", type=int, default=1, help="Number of threads (default: 1)")
     parser.add_argument("-o", "--output", help="Output file (default: CLI output)")
@@ -153,7 +157,7 @@ def main():
     elif args.list:
         try:
             with open(args.list, 'r') as f:
-                ip_list = [line.strip() for line in f.readlines()]
+                ip_list = [line.strip() for line in f if line.strip()]
         except FileNotFoundError:
             print(f"File {args.list} not found.")
             sys.exit(1)
@@ -164,15 +168,24 @@ def main():
     send_request_urls, read_file_urls = load_providers(args.providers)
     cidr_ranges = fetch_cidr_from_urls(send_request_urls)
     cidr_ranges.update(fetch_cidr_from_urls(read_file_urls))
+    networks = prepare_networks(cidr_ranges)
     
-    threads = []
-    for _ in range(args.threads):
-        t = threading.Thread(target=worker, args=(ip_list, cidr_ranges, args.output))
-        t.start()
-        threads.append(t)
+    # تقسیم آیپی‌ها بین نخ‌ها
+    num_threads = args.threads if args.threads > 0 else 1
+    ip_chunks = split_list(ip_list, num_threads)
     
-    for t in threads:
-        t.join()
+    all_results = []
+    with ThreadPoolExecutor(max_workers=num_threads) as executor:
+        futures = [executor.submit(process_chunk, chunk, networks) for chunk in ip_chunks]
+        for future in futures:
+            all_results.extend(future.result())
+    
+    if args.output:
+        with open(args.output, 'w') as f:
+            f.write('\n'.join(all_results) + '\n')
+    else:
+        for ip in all_results:
+            print(ip)
 
 if __name__ == "__main__":
     main()
