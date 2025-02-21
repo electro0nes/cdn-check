@@ -147,10 +147,10 @@ def main():
     parser.add_argument("--threads", type=int, default=1, help="Number of threads (default: 1)")
     parser.add_argument("-o", "--output", help="Output file (default: CLI output)")
     args = parser.parse_args()
-    
+
     if not args.silent:
         print(BANNER)
-    
+
     ip_list = []
     if args.ip:
         ip_list.append(args.ip)
@@ -164,22 +164,21 @@ def main():
     else:
         print("You must specify either -i (single IP) or -l (IP list file)")
         sys.exit(1)
-    
+
     send_request_urls, read_file_urls = load_providers(args.providers)
     cidr_ranges = fetch_cidr_from_urls(send_request_urls)
     cidr_ranges.update(fetch_cidr_from_urls(read_file_urls))
     networks = prepare_networks(cidr_ranges)
-    
-    # تقسیم آیپی‌ها بین نخ‌ها
+
     num_threads = args.threads if args.threads > 0 else 1
     ip_chunks = split_list(ip_list, num_threads)
-    
+
     all_results = []
     with ThreadPoolExecutor(max_workers=num_threads) as executor:
         futures = [executor.submit(process_chunk, chunk, networks) for chunk in ip_chunks]
         for future in futures:
             all_results.extend(future.result())
-    
+
     if args.output:
         with open(args.output, 'w') as f:
             f.write('\n'.join(all_results) + '\n')
