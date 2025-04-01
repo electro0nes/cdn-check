@@ -20,6 +20,11 @@ Request:
     - https://raw.githubusercontent.com/femueller/cloud-ip-ranges/refs/heads/master/aws-ip-ranges.json
     - https://support.zendesk.com/ips
     - https://go-vip.net/ip-ranges.json
+    - https://raw.githubusercontent.com/MISP/misp-warninglists/refs/heads/main/lists/akamai/list.json
+    - https://quic.cloud/ips
+    - https://access.redhat.com/sites/default/files/cdn_redhat_com_cac.json
+    - https://cloud.medianova.com/api/v1/ip/blocks-list
+    - https://api.gcore.com/cdn/public-ip-list
 Read:
     - https://www.arvancloud.ir/en/ips.txt
     - https://raw.githubusercontent.com/stamparm/maltrail/refs/heads/master/misc/cdn_ranges.txt
@@ -28,3 +33,5 @@ Read:
     - https://download.microsoft.com/download/0/1/8/018E208D-54F8-44CD-AA26-CD7BC9524A8C/PublicIPs_20200824.xml
     - https://digitalocean.com/geo/google.csv
     - https://docs.oracle.com/en-us/iaas/tools/public_ip_ranges.json
+    - https://raw.githubusercontent.com/lord-alfred/ipranges/main/all/ipv4.txt
+    - https://raw.githubusercontent.com/stamparm/maltrail/refs/heads/master/misc/cdn_ranges.txt
