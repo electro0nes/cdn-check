@@ -6,6 +6,7 @@ import json
 import csv
 import re
 import xml.etree.ElementTree as ET
+import socket
 from concurrent.futures import ThreadPoolExecutor
 from colorama import Fore, Style, init
 
@@ -18,7 +19,6 @@ BANNER = f"""
 """
 
 def fetch_cidr_from_urls(urls):
-    """Fetch CIDR ranges from URLs."""
     cidr_ranges = set()
     for url in urls:
         try:
@@ -39,7 +39,6 @@ def fetch_cidr_from_urls(urls):
     return cidr_ranges
 
 def extract_cidr(data):
-    """Extract CIDR and IPs from raw text."""
     cidr_list = set()
     ip_pattern = re.compile(r"\b(?:\d{1,3}\.){3}\d{1,3}(?:/\d{1,2})?\b")
     for match in ip_pattern.findall(data):
@@ -50,7 +49,6 @@ def extract_cidr(data):
     return cidr_list
 
 def extract_cidr_from_json(data):
-    """Extract CIDR and IPs from JSON."""
     cidr_list = set()
     try:
         json_data = json.loads(data)
@@ -72,7 +70,6 @@ def extract_cidr_from_json(data):
     return cidr_list
 
 def extract_cidr_from_csv(data):
-    """Extract CIDR and IPs from CSV."""
     cidr_list = set()
     csv_reader = csv.reader(data.splitlines())
     for row in csv_reader:
@@ -85,7 +82,6 @@ def extract_cidr_from_csv(data):
     return cidr_list
 
 def extract_cidr_from_xml(data):
-    """Extract CIDR and IPs from XML."""
     cidr_list = set()
     try:
         root = ET.fromstring(data)
@@ -101,13 +97,11 @@ def extract_cidr_from_xml(data):
     return cidr_list
 
 def load_providers(provider_file):
-    """Load provider URLs from YAML file."""
     with open(provider_file, 'r') as f:
         data = yaml.safe_load(f)
     return data.get("Request", []), data.get("Read", [])
 
 def prepare_networks(cidr_ranges):
-    """Pre-process CIDR ranges into ipaddress network objects."""
     networks = []
     for cidr in cidr_ranges:
         try:
@@ -116,24 +110,49 @@ def prepare_networks(cidr_ranges):
             continue
     return networks
 
-def check_ip_against_cdn(ip, networks):
-    """Check if the given IP is behind a CDN using preprocessed networks."""
+def get_ptr_record(ip):
+    try:
+        result = socket.gethostbyaddr(ip)
+        return [result[0]]
+    except socket.herror:
+        return []
+
+def get_http_server_header(ip):
+    try:
+        response = requests.get(f"http://{ip}", timeout=3)
+        return response.headers.get('Server', '')
+    except requests.RequestException:
+        return ''
+
+def check_ip_against_cdn(ip, networks, active_mode=False):
     ip_obj = ipaddress.ip_address(ip)
+
     for network in networks:
         if ip_obj in network:
             return True
+
+    if active_mode:
+        # PTR lookup
+        ptrs = get_ptr_record(ip)
+        for ptr in ptrs:
+            if any(cdn in ptr.lower() for cdn in ["akamaitechnologies.com", "cloudflare", "fastly.net", "edgesuite.net"]):
+                return True
+
+        # HTTP header check
+        server_header = get_http_server_header(ip).lower()
+        if any(cdn in server_header for cdn in ["akamai", "cloudfront", "cloudflare", "fastly", "incapsula"]):
+            return True
+
     return False
 
 def split_list(lst, n):
-    """Split list lst into n roughly equal chunks."""
     k, m = divmod(len(lst), n)
     return [lst[i*k + min(i, m):(i+1)*k + min(i+1, m)] for i in range(n)]
 
-def process_chunk(chunk, networks):
-    """Process a chunk of IPs and return those not behind a CDN."""
+def process_chunk(chunk, networks, active_mode=False):
     results = []
     for ip in chunk:
-        if not check_ip_against_cdn(ip, networks):
+        if not check_ip_against_cdn(ip, networks, active_mode):
             results.append(ip)
     return results
 
@@ -142,8 +161,9 @@ def main():
     parser = argparse.ArgumentParser(description="Cdn-Check - A tool to check if an IP is behind a CDN or thirdparty")
     parser.add_argument("-i", "--ip", help="Single IP address to check")
     parser.add_argument("-l", "--list", help="File containing a list of IPs to check")
-    parser.add_argument("-p", "--providers", default="files/providers.yaml", required=False, help="YAML file containing provider URLs")
+    parser.add_argument("-p", "--providers", default="files/providers.yaml", help="YAML file containing provider URLs")
     parser.add_argument("--silent", action="store_true", help="Suppress banner output")
+    parser.add_argument("--active", action="store_true", help="Enable active checks like PTR and HTTP headers")
     parser.add_argument("--threads", type=int, default=1, help="Number of threads (default: 1)")
     parser.add_argument("-o", "--output", help="Output file (default: CLI output)")
     args = parser.parse_args()
@@ -175,7 +195,7 @@ def main():
 
     all_results = []
     with ThreadPoolExecutor(max_workers=num_threads) as executor:
-        futures = [executor.submit(process_chunk, chunk, networks) for chunk in ip_chunks]
+        futures = [executor.submit(process_chunk, chunk, networks, args.active) for chunk in ip_chunks]
         for future in futures:
             all_results.extend(future.result())
 
