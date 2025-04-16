@@ -14,7 +14,7 @@
 ## Installation
 
 ```bash
-git clone https://github.com/moeinerfanian/cdn-check.git
+git clone https://github.com/electro0nes/cdn-check.git
 cd cdn-check
 pip3 install -r requirements.txt
 ```
@@ -50,6 +50,6 @@ Read:
 MIT License
 
 ## Author
-**Moein Erfanian (Electro0ne)**  
-GitHub: [moeinerfanian](https://github.com/moeinerfanian)
+**Electro0ne (Moein Erfanian)**  
+GitHub: [moeinerfanian](https://github.com/electro0nes)
 Cut-Cdn : [ImAyrix](https://github.com/ImAyrix/cut-cdn/)
