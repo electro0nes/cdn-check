@@ -51,5 +51,5 @@ MIT License
 
 ## Author
 **Electro0ne (Moein Erfanian)**  
-GitHub: [moeinerfanian](https://github.com/electro0nes)
+GitHub: [Moein Erfanian](https://github.com/electro0nes)
 Cut-Cdn : [ImAyrix](https://github.com/ImAyrix/cut-cdn/)

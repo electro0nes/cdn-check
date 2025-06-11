@@ -15,7 +15,7 @@ init(autoreset=True)
 BANNER = f"""
 {Fore.CYAN}Cdn-Check - A tool to check if an IP is behind a CDN or thirdparty{Style.RESET_ALL}
 {Fore.YELLOW}Author: Moein Erfanian{Style.RESET_ALL}
-{Fore.GREEN}GitHub: github.com/moeinerfanian{Style.RESET_ALL}
+{Fore.GREEN}GitHub: github.com/electro0nes{Style.RESET_ALL}
 """
 
 def fetch_cidr_from_urls(urls):
